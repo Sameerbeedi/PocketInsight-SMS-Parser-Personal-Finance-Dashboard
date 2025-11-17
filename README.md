@@ -35,19 +35,21 @@ sample-data/ Handy SMS snippets you can paste into the UI
 ```
 
 ### API Highlights
-- `POST /api/parse` – send raw SMS text (string or array) and receive `transactions` + `insights`.
-- `GET /api/sample` – returns curated dummy alerts plus parsed output (perfect for demos).
+- `POST /api/parse` – send raw SMS text (string or array) and receive `transactions`, `insights`, and `reminders`. Optional `region` (e.g. `IN`, `SG`) enables locale-specific merchant/category rules, and each transaction returns confidence scores plus dictionary-normalized merchants.
+- `GET /api/sample` – returns curated dummy alerts plus parsed output (perfect for demos). Accepts the same optional `region` query parameter.
 - `GET /health` – lightweight uptime probe for Render/Replit health checks.
 
 Under the hood the parser extracts:
-1. Amounts (supports `Rs`, `INR`, `₹` formats)
-2. Merchant / counterparty names (`at`, `to`, `from` phrases)
+1. Amounts (supports `Rs`, `INR`, `₹`, `SGD`, `USD` prefixes)
+2. Merchant / counterparty names using regex + fuzzy dictionary matching (canonicalized names + confidence scores)
 3. Date strings (multiple formats)
-4. Direction (debit vs credit) + heuristic categories (shopping, utilities, salary, etc.)
+4. Direction (debit vs credit) + heuristic categories with region-aware keyword packs and merchant hints
+5. Reminder candidates (payment requests, credit card dues, end-of-month bills) with inferred due dates
 
 ### Frontend Highlights
 - Paste SMS text, or click **“Load sample data”** to autofill the curated dataset.
 - Interactive cards for total spend, income, and net balance.
+- Dedicated reminder tab that surfaces upcoming payment requests and card/bill dues with due-date badges.
 - Monthly net-flow area chart + category pie chart.
 - Ranked category list and recent-transactions table with message snippets.
 
@@ -69,7 +71,7 @@ Environment variables:
 ## Sample Data
 
 - UI button **“Load sample data”** calls `/api/sample`.
-- `server/src/sampleMessages.js` powers the API response.
+- `server/src/sampleMessages.js` powers the API response, including synthetic payment requests and credit-card due alerts so the reminder UI lights up instantly.
 - `sample-data/messages.txt` is a copy you can paste manually for demos.
 
 ---

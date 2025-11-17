@@ -1,7 +1,7 @@
 import {
-  Area,
-  AreaChart,
   CartesianGrid,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -21,22 +21,28 @@ function MonthlyChart({ data }) {
 
   return (
     <ResponsiveContainer width="100%" height={260}>
-      <AreaChart data={chartData} margin={{ left: 0, right: 0, top: 10, bottom: 0 }}>
-        <defs>
-          <linearGradient id="debit" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#f97316" stopOpacity={0.8} />
-            <stop offset="95%" stopColor="#f97316" stopOpacity={0.1} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#ececec" />
-        <XAxis dataKey="monthLabel" />
-        <YAxis tickFormatter={(value) => formatAmount(value)} width={80} />
+      <LineChart data={chartData} margin={{ left: 0, right: 10, top: 10, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+        <XAxis dataKey="monthLabel" tick={{ fill: '#475467', fontSize: 12 }} />
+        <YAxis
+          tickFormatter={(value) => formatAmount(value)}
+          width={80}
+          tick={{ fill: '#475467', fontSize: 12 }}
+        />
         <Tooltip
           formatter={(value) => formatAmount(value)}
           labelFormatter={(label) => `Month of ${label}`}
+          contentStyle={{ borderRadius: 12 }}
         />
-        <Area type="monotone" dataKey="debit" stroke="#ea580c" fillOpacity={1} fill="url(#debit)" />
-      </AreaChart>
+        <Line
+          type="monotone"
+          dataKey="net"
+          stroke="#4F46E5"
+          strokeWidth={3}
+          dot={{ r: 4, strokeWidth: 2, stroke: '#4F46E5', fill: '#fff' }}
+          activeDot={{ r: 6 }}
+        />
+      </LineChart>
     </ResponsiveContainer>
   );
 }

@@ -8,6 +8,8 @@ const SAMPLE_MESSAGES = [
   'RBL: Your card XX6789 was used for Rs 420 at Metro Rapid. If not you, call 1800-000-111.',
   'IndusInd Bank: Rs 6,500 rent transferred to Rajesh via IMPS on 03-10-2025.',
   'IDFC First: Rs 4,200 credited from John Doe on 07-10-2025.',
+  'GPay: Payment request of Rs 950 from Anjali. Please pay by 25-10-2025.',
+  'HDFC Card: Credit card payment due Rs 12,500 due on 28-10-2025. Pay by due date to avoid charges.',
 ];
 
 module.exports = { SAMPLE_MESSAGES };

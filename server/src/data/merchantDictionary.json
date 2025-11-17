@@ -1,0 +1,51 @@
+[
+  {
+    "name": "Amazon",
+    "aliases": ["amazon pantry", "amazon india", "amazon.in", "amazon pay", "amzn", "amzn pantry", "amzn pantri"],
+    "categoryHint": "Shopping",
+    "locales": ["IN"]
+  },
+  {
+    "name": "Swiggy",
+    "aliases": ["swiggy order", "swiggy instamart", "swgy", "swgy insta"],
+    "categoryHint": "Food & Dining",
+    "locales": ["IN"]
+  },
+  {
+    "name": "Zomato",
+    "aliases": ["zomato order", "zomato gold"],
+    "categoryHint": "Food & Dining",
+    "locales": ["IN"]
+  },
+  {
+    "name": "Myntra",
+    "aliases": ["myntra fashions"],
+    "categoryHint": "Shopping",
+    "locales": ["IN"]
+  },
+  {
+    "name": "Flipkart",
+    "aliases": ["flipkart online services"],
+    "categoryHint": "Shopping",
+    "locales": ["IN"]
+  },
+  {
+    "name": "BESCOM",
+    "aliases": ["bescom electricity", "bangalore electricity"],
+    "categoryHint": "Utilities",
+    "locales": ["IN"]
+  },
+  {
+    "name": "HP Petrol Pump",
+    "aliases": ["hindustan petroleum", "hpcl pump", "hpcl fuel express"],
+    "categoryHint": "Transport",
+    "locales": ["IN"]
+  },
+  {
+    "name": "Metro Rapid",
+    "aliases": ["namma metro", "metro rapid"],
+    "categoryHint": "Transport",
+    "locales": ["IN"]
+  }
+]
+

@@ -1,24 +1,66 @@
-const { format, parse, parseISO, isValid } = require('date-fns');
+const { format, parse, parseISO, isValid, endOfMonth } = require('date-fns');
+const Fuse = require('fuse.js');
+const merchantDictionary = require('./data/merchantDictionary.json');
+const { getCategoryConfig, DEFAULT_REGION } = require('./config/categoryConfigs');
 
-const AMOUNT_REGEX = /(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i;
-const MERCHANT_REGEX = /\b(?:at|to|from|in)\s+([a-z0-9&\-\s]+?)(?:\.|,| on| for|$)/i;
+const AMOUNT_REGEX =
+  /(?:(?:rs\.?|inr|₹|sgd|usd)\s*([\d,]+(?:\.\d{1,2})?)|([\d,]+(?:\.\d{1,2})?)\s*(?:rs\.?|inr|₹|sgd|usd))/i;
+const MERCHANT_REGEX = /(?:\bat|\bto|\bfrom|\bin|@)\s+([a-z0-9&\-\s“”"']+?)(?:\.|,| on| for| id| ref|$)/i;
 
-const CATEGORY_RULES = [
-  { category: 'Groceries', keywords: ['grocery', 'bigbasket', 'dmart', 'fresh', 'hypermarket'] },
-  { category: 'Food & Dining', keywords: ['swiggy', 'zomato', 'restaurant', 'cafe', 'eatery', 'dine'] },
-  { category: 'Shopping', keywords: ['amazon', 'flipkart', 'myntra', 'ajio', 'lifestyle', 'mall'] },
-  { category: 'Utilities', keywords: ['electric', 'power', 'water', 'gas', 'recharge', 'dth', 'broadband'] },
-  { category: 'Transport', keywords: ['uber', 'ola', 'metro', 'fuel', 'petrol', 'diesel'] },
-  { category: 'Salary', keywords: ['salary', 'payroll', 'credited', 'neft', 'imps', 'salary'] },
-  { category: 'Fees & Charges', keywords: ['fee', 'charge', 'penalty', 'gst', 'imposed'] },
-  { category: 'Rent & Housing', keywords: ['rent', 'maintenance', 'housing', 'builder'] },
+const REMINDER_RULES = [
+  {
+    type: 'payment_request',
+    title: 'Payment request',
+    keywords: ['payment request', 'pay request', 'gpay request', 'gpay payment request'],
+  },
+  {
+    type: 'credit_card_due',
+    title: 'Credit card due',
+    keywords: ['credit card payment due', 'card payment due', 'card bill due', 'statement due'],
+  },
+  {
+    type: 'bill_due',
+    title: 'Bill payment due',
+    keywords: ['bill due', 'payment due', 'due amount', 'emi due', 'loan due', 'pay by'],
+  },
 ];
+
+const DUE_DATE_PATTERNS = [
+  { regex: /(?:due|by)\s+(\d{2}-\d{2}-\d{4})/i, format: 'dd-MM-yyyy' },
+  { regex: /(?:due|by)\s+(\d{2}\/\d{2}\/\d{4})/i, format: 'dd/MM/yyyy' },
+  { regex: /(?:due|by)\s+(\d{4}-\d{2}-\d{2})/i, format: 'yyyy-MM-dd' },
+  { regex: /(?:due|by|on)\s+(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s*(\d{4})?/i },
+];
+
+const merchantFuse = new Fuse(merchantDictionary, {
+  keys: ['name', 'aliases'],
+  threshold: 0.45,
+  includeScore: true,
+  ignoreLocation: true,
+  minMatchCharLength: 2,
+  shouldSort: true,
+});
 
 const DATE_PATTERNS = [
   { regex: /on (\d{2}-\d{2}-\d{4})/, format: 'dd-MM-yyyy' },
   { regex: /on (\d{2}\/\d{2}\/\d{4})/, format: 'dd/MM/yyyy' },
   { regex: /on (\d{4}-\d{2}-\d{2})/, format: 'yyyy-MM-dd' },
 ];
+
+const MONTH_INDEX = {
+  jan: 0,
+  feb: 1,
+  mar: 2,
+  apr: 3,
+  may: 4,
+  jun: 5,
+  jul: 6,
+  aug: 7,
+  sep: 8,
+  oct: 9,
+  nov: 10,
+  dec: 11,
+};
 
 function normalizeMessages(input) {
   if (!input) return [];
@@ -62,54 +104,184 @@ function parseDateFromMessage(message) {
   return new Date().toISOString();
 }
 
+function parseDueDateFromMessage(message, fallbackISO) {
+  const fallbackDate = new Date(fallbackISO);
+  for (const pattern of DUE_DATE_PATTERNS) {
+    const match = message.match(pattern.regex);
+    if (match) {
+      if (pattern.format) {
+        const parsed = parse(match[1], pattern.format, fallbackDate);
+        if (isValid(parsed)) {
+          return parsed.toISOString();
+        }
+      } else if (match.length >= 3) {
+        const day = Number(match[1]);
+        const month = MONTH_INDEX[match[2].slice(0, 3).toLowerCase()];
+        const year = match[3] ? Number(match[3]) : fallbackDate.getFullYear();
+        if (!Number.isNaN(day) && month >= 0) {
+          const parsed = new Date(year, month, day);
+          if (isValid(parsed)) {
+            return parsed.toISOString();
+          }
+        }
+      }
+    }
+  }
+  const endDate = endOfMonth(fallbackDate);
+  return endDate.toISOString();
+}
+
 function extractMerchant(message) {
   const match = message.match(MERCHANT_REGEX);
   if (match) {
-    return match[1].trim().replace(/\s+/g, ' ');
+    const cleaned = match[1]
+      .replace(/[“”"']/g, ' ')
+      .split(/\b(?:id|time|ref|txn)\b/i)[0]
+      .trim()
+      .replace(/\s+/g, ' ');
+    if (cleaned) return cleaned;
   }
   const fallback = message.split(' ').slice(0, 3).join(' ');
   return fallback;
 }
 
 function detectDirection(message) {
-  if (/credited|received|deposit/i.test(message)) {
+  if (/\b(credited|credit|received|deposit)\b/i.test(message)) {
     return 'credit';
   }
   return 'debit';
 }
 
-function categorizeTransaction(merchant, message, direction) {
-  const haystack = `${merchant} ${message}`.toLowerCase();
-  for (const rule of CATEGORY_RULES) {
-    if (rule.keywords.some((keyword) => haystack.includes(keyword))) {
-      return rule.category;
-    }
-  }
-  if (direction === 'credit') {
-    return 'Income';
-  }
-  return 'Other';
+function detectReminder(message, context) {
+  const normalized = message.toLowerCase();
+  const matchedRule = REMINDER_RULES.find((rule) =>
+    rule.keywords.some((keyword) => normalized.includes(keyword)),
+  );
+  if (!matchedRule) return null;
+
+  const dueDate = parseDueDateFromMessage(message, context.bookedAt);
+  return {
+    type: matchedRule.type,
+    title: matchedRule.title,
+    dueDate,
+    amount: context.amount,
+    note: message,
+    source: context.merchant,
+  };
 }
 
-function parseMessage(message, idx) {
+function categorizeTransaction(merchant, message, direction, categoryRules, merchantHint) {
+  if (merchantHint) {
+    return { category: merchantHint, confidence: 0.9 };
+  }
+
+  const haystack = `${merchant} ${message}`.toLowerCase();
+  let bestMatch = { category: direction === 'credit' ? 'Income' : 'Other', score: 0.1 };
+
+  categoryRules.forEach((rule) => {
+    const matches = rule.keywords.reduce(
+      (acc, keyword) => (haystack.includes(keyword.toLowerCase()) ? acc + 1 : acc),
+      0,
+    );
+    if (matches > 0) {
+      const keywordCoverage = matches / rule.keywords.length;
+      const score = keywordCoverage * rule.weight;
+      if (score > bestMatch.score) {
+        bestMatch = { category: rule.category, score };
+      }
+    }
+  });
+
+  const confidence = Number(Math.min(bestMatch.score + 0.2, 0.95).toFixed(2));
+  return {
+    category: bestMatch.category,
+    confidence: confidence < 0.3 ? 0.3 : confidence,
+  };
+}
+
+function sanitizeMerchantText(value) {
+  return String(value)
+    .replace(/[“”]/g, ' ')
+    .toLowerCase()
+    .replace(/[0-9]/g, ' ')
+    .replace(/[^a-z\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function matchMerchant(merchant, region) {
+  const terms = [
+    merchant,
+    sanitizeMerchantText(merchant),
+    sanitizeMerchantText(merchant.split(/[\.,]/)[0]),
+  ].filter(Boolean);
+
+  const results = terms.flatMap((term) => merchantFuse.search(term));
+  if (!results.length) return null;
+
+  for (const result of results) {
+    const locales = result.item.locales || [];
+    if (locales.length && !locales.includes(region) && !locales.includes('GLOBAL')) {
+      continue;
+    }
+
+    const confidence = result.score != null ? Number((1 - Math.min(result.score, 1)).toFixed(2)) : 0.6;
+    return {
+      raw: merchant,
+      match: result.item,
+      confidence,
+    };
+  }
+
+  return null;
+}
+
+function parseMessage(message, idx, context) {
+  const { region, categoryRules } = context;
   const amountMatch = message.match(AMOUNT_REGEX);
   if (!amountMatch) return null;
 
-  const amount = Number(amountMatch[1].replace(/,/g, ''));
-  const merchant = extractMerchant(message);
+  const amountRaw = amountMatch[1] || amountMatch[2];
+  const amount = Number((amountRaw || '0').replace(/,/g, ''));
+  const merchantRaw = extractMerchant(message);
+  const merchantMatch = matchMerchant(merchantRaw, region);
+  const normalizedMerchant = merchantMatch?.match?.name || merchantRaw;
+
   const direction = detectDirection(message);
-  const category = categorizeTransaction(merchant, message, direction);
+  const { category, confidence: categoryConfidence } = categorizeTransaction(
+    normalizedMerchant,
+    message,
+    direction,
+    categoryRules,
+    merchantMatch?.match?.categoryHint,
+  );
   const bookedAt = parseDateFromMessage(message);
+  const merchantConfidence = merchantMatch?.confidence || 0.55;
+  const reminder = detectReminder(message, {
+    amount,
+    bookedAt,
+    merchant: normalizedMerchant,
+  });
 
   return {
     id: `txn-${Date.now()}-${idx}`,
     amount,
     direction,
-    merchant,
+    merchant: normalizedMerchant,
     category,
     date: bookedAt,
     message,
     accountRef: extractAccountReference(message),
+    metadata: {
+      region,
+      confidence: {
+        merchant: merchantConfidence,
+        category: categoryConfidence,
+      },
+      rawMerchant: merchantRaw,
+      matchedMerchant: merchantMatch?.match?.name || null,
+    reminder,
+    },
   };
 }
 
@@ -121,12 +293,19 @@ function extractAccountReference(message) {
   return 'XXXX';
 }
 
-function parseMessages(input) {
+function resolveRegionMaybe(region) {
+  if (!region) return DEFAULT_REGION;
+  return String(region).toUpperCase();
+}
+
+function parseMessages(input, options = {}) {
+  const region = resolveRegionMaybe(options.region);
+  const categoryRules = getCategoryConfig(region);
   const lines = normalizeMessages(input);
   const transactions = lines
-    .map((line, idx) => parseMessage(line, idx))
+    .map((line, idx) => parseMessage(line, idx, { region, categoryRules }))
     .filter(Boolean);
-  return transactions;
+  return { transactions, region };
 }
 
 function summarizeTransactions(transactions = []) {
@@ -178,8 +357,30 @@ function summarizeTransactions(transactions = []) {
   };
 }
 
+function collectReminders(transactions = []) {
+  return transactions
+    .map((txn) => {
+      const reminder = txn.metadata?.reminder;
+      if (!reminder) return null;
+      return {
+        id: `${txn.id}-reminder`,
+        transactionId: txn.id,
+        title: reminder.title,
+        type: reminder.type,
+        dueDate: reminder.dueDate,
+        amount: reminder.amount,
+        merchant: txn.merchant,
+        note: reminder.note,
+        source: reminder.source || txn.merchant,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+}
+
 module.exports = {
   parseMessages,
   summarizeTransactions,
+  collectReminders,
 };
 
