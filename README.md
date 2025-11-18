@@ -48,10 +48,16 @@ Under the hood the parser extracts:
 
 ### Frontend Highlights
 - Paste SMS text, or click **“Load sample data”** to autofill the curated dataset.
+- Multi-page React Router experience with sidebar navigation for Dashboard, Inbox, Transactions, Insights, Reminders, and Settings.
 - Interactive cards for total spend, income, and net balance.
 - Dedicated reminder tab that surfaces upcoming payment requests and card/bill dues with due-date badges.
 - Monthly net-flow area chart + category pie chart.
 - Ranked category list and recent-transactions table with message snippets.
+
+### Routing & Navigation
+- Routes: `/dashboard`, `/inbox(/:messageId)`, `/transactions(/:id)`, `/insights(/:type)`, `/reminders`, `/settings`.
+- Persistent sidebar + breadcrumb navigation with basic route guards ready for authentication.
+- Global context (AppData + Auth) keeps filters, parsed data, and user prefs consistent across pages.
 
 ---
 
