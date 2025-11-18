@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link, Outlet, useSearchParams } from 'react-router-dom';
+import { Link, Outlet, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAppData } from '../context/AppDataContext';
 import { formatAmount, formatDate } from '../utils/formatters';
 
@@ -21,11 +21,21 @@ function Transactions() {
 
   const categories = Array.from(new Set(transactions.map((txn) => txn.category))).filter(Boolean);
 
+  const navigate = useNavigate();
+
   const handleFilterChange = (nextQuery, nextCategory) => {
     const params = new URLSearchParams();
     if (nextQuery) params.set('q', nextQuery);
     if (nextCategory && nextCategory !== 'all') params.set('category', nextCategory);
     setSearchParams(params);
+  };
+
+  const handleResetFilters = () => {
+    setQuery('');
+    setCategory('all');
+    setSearchParams(new URLSearchParams());
+    // keep user on the transactions page; clear any nested detail route
+    navigate('/transactions');
   };
 
   return (
@@ -61,7 +71,7 @@ function Transactions() {
             </option>
           ))}
         </select>
-        <button type="button" className="btn secondary" onClick={() => handleFilterChange('', 'all')}>
+        <button type="button" className="btn secondary" onClick={handleResetFilters}>
           Reset filters
         </button>
       </div>
@@ -77,7 +87,7 @@ function Transactions() {
           </thead>
           <tbody>
             {filtered.map((txn) => (
-              <tr key={txn.id}>
+              <tr key={txn.id} className="clickable-row" onClick={() => navigate(`/transactions/${txn.id}`)}>
                 <td>
                   <Link to={`/transactions/${txn.id}`} className="link-underline">
                     {txn.merchant}
