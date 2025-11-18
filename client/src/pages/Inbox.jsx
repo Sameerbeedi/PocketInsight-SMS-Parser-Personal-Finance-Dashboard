@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useAppData } from '../context/AppDataContext';
 
 function Inbox() {
@@ -55,11 +55,13 @@ function Inbox() {
           <ul className="inbox-list">
             {filtered.map((txn) => (
               <li key={txn.id} className={txn.id === activeTxn?.id ? 'active' : ''}>
-                <div>
-                  <p>{txn.merchant}</p>
-                  <small>{new Date(txn.date).toLocaleString()}</small>
-                </div>
-                <span className={`pill ${txn.direction === 'credit' ? 'credit' : 'debit'}`}>{txn.direction}</span>
+                <Link to={`/inbox/${txn.id}`} className="inbox-link">
+                  <div>
+                    <p>{txn.merchant}</p>
+                    <small>{new Date(txn.date).toLocaleString()}</small>
+                  </div>
+                  <span className={`pill ${txn.direction === 'credit' ? 'credit' : 'debit'}`}>{txn.direction}</span>
+                </Link>
               </li>
             ))}
           </ul>
@@ -72,9 +74,9 @@ function Inbox() {
               <dl>
                 <div>
                   <dt>Amount</dt>
-                  <dd>
-                    {activeTxn.direction === 'credit' ? '+' : '-'}₹{activeTxn.amount}
-                  </dd>
+                    <dd>
+                      {activeTxn.amount ? `${activeTxn.amount.toLocaleString('en-IN', {style: 'currency', currency: 'INR', maximumFractionDigits: 0})}` : '₹0'}
+                    </dd>
                 </div>
                 <div>
                   <dt>Category</dt>
