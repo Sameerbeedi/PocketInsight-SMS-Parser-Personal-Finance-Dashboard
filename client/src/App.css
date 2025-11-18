@@ -655,6 +655,15 @@
   font-size: 0.82rem;
 }
 
+/* Prevent category pills from wrapping in table cells; truncate long labels */
+.table-card td .pill {
+  display: inline-block;
+  max-width: 9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .txn-amount {
   font-weight: 600;
   display: inline-flex;

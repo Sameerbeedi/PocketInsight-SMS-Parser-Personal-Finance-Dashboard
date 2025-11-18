@@ -1,6 +1,8 @@
+import { useNavigate } from 'react-router-dom';
 import { formatAmount, formatDate, toDisplayTransactions } from '../utils/formatters';
 
 function TransactionsTable({ transactions, totalCount, isFiltered, onClearFilters }) {
+  const navigate = useNavigate();
   const rows = toDisplayTransactions(transactions);
   const countLabel = isFiltered
     ? `${transactions.length} of ${totalCount}`
@@ -37,7 +39,7 @@ function TransactionsTable({ transactions, totalCount, isFiltered, onClearFilter
           </thead>
           <tbody>
             {rows.map((txn) => (
-              <tr key={txn.id}>
+              <tr key={txn.id} onClick={() => navigate(`/transactions/${txn.id}`)} className="clickable-row">
                 <td>
                   <strong>{txn.merchant}</strong>
                   <p>{txn.message}</p>
